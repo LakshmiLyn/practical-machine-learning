@@ -1,0 +1,75 @@
+Rajalakshmi S
+
+```{r}
+training <- read.csv("pml-training.csv")
+testing <- read.csv("pml-testing.csv")
+```
+
+```{r}
+dim(training)
+dim(testing)
+```
+
+```{r}
+library(lattice)
+library(ggplot2)
+library(plyr)
+library(randomForest)
+library(RColorBrewer)
+library(cluster)
+```
+
+```{r}
+set.seed(17836387)
+library(caret)
+```
+
+```{r}
+correlations <- cor(training[, -classeIndex], as.numeric(training$classe))
+correlationMatrix <- cor(training[, -classeIndex])
+highlyCorrelated <- findCorrelation(correlationMatrix, cutoff=0.9, exact=TRUE)
+excludeColumns <- c(highlyCorrelated, classeIndex)
+```
+
+```{r}
+pcaPreProcess <- preProcess(training[, -classeIndex], method = "pca", thresh = 0.99)
+training.pca <- predict(pcaPreProcess, training[, -classeIndex])
+testing.pca <- predict(pcaPreProcess, testing[, -classeIndex])
+
+```
+
+```{r}
+ntree <- 200 
+proc.time() - start
+start <- proc.time()
+rfMod <- randomForest(
+  x=training[, -excludeColumns], 
+  y=training$classe,
+  xtest=training[, -excludeColumns], 
+  ytest=training$classe, 
+  ntree=ntree,
+  keep.forest=TRUE,
+  proximity=TRUE) 
+```
+
+```{r}
+start <- proc.time()
+rfMod.mds <- MDSplot(rfMod, as.factor(classeLevels), k=2, pch=20, palette=brewer.pal(length(classeLevels), "Set1"))
+rfMod.pam <- pam(1 - rfMod$proximity, k=length(classeLevels), diss=TRUE)
+plot(
+  rfMod.mds$points[, 1], 
+  rfMod.mds$points[, 2], 
+  pch=rfMod.pam$clustering, 
+  col=alpha(palette[as.numeric(training$classe)],0.5), 
+  bg=alpha(palette[as.numeric(training$classe)],0.2), 
+  cex=0.5)
+```
+
+```{r}
+predictions <- as.data.frame(predict(rfMod, testing[, -excludeColumns]), optional=TRUE)
+```
+
+```{r}
+predictions
+```
+
